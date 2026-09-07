@@ -1,16 +1,1 @@
-{
-  "name": "@casino/shared",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "build": "tsc",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "typescript": "^5.3.0"
-  }
-}
+{"name":"@casino/shared","version":"1.0.0","description":"Shared utilities and helpers","main":"dist/index.js","types":"dist/index.d.ts","scripts":{"build":"tsc","typecheck":"tsc --noEmit","lint":"eslint src/**/*.ts"},"dependencies":{"@casino/types":"workspace:*"},"devDependencies":{"typescript":"^5.3.3"}}

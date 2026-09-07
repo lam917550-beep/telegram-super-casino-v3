@@ -1,0 +1,1 @@
+{"name":"@casino/game-engine","version":"1.0.0","description":"Game engine for 150+ games","main":"dist/index.js","types":"dist/index.d.ts","scripts":{"build":"tsc","typecheck":"tsc --noEmit","lint":"eslint src/**/*.ts"},"dependencies":{"@casino/types":"workspace:*","@casino/shared":"workspace:*"},"devDependencies":{"typescript":"^5.3.3"}}

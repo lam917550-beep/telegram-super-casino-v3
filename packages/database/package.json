@@ -1,0 +1,26 @@
+{
+  "name": "@casino/database",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:create": "prisma migrate dev --create-only",
+    "db:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.7.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.7.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  }
+}

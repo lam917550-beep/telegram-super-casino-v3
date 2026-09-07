@@ -1,0 +1,706 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
+model User {
+  id                    String   @id @default(cuid())
+  telegramId            BigInt   @unique
+  username              String   @unique
+  firstName             String
+  lastName              String?
+  gameUsername          String   @unique
+  avatar                String?
+  level                 Int      @default(1)
+  xp                    BigInt   @default(0)
+  streak                Int      @default(0)
+  bestStreak            Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lastActiveAt          DateTime @default(now())
+  isActive              Boolean  @default(true)
+  isBanned              Boolean  @default(false)
+  bannedReason          String?
+  bannedAt              DateTime?
+
+  // Relations
+  wallet                Wallet?
+  settings              UserSettings?
+  walletTransactions    WalletTransaction[]
+  ledger                Ledger[]
+  gameRounds            GameRound[]
+  userPets              UserPet[]
+  inventory             InventoryItem[]
+  purchases             Purchase[]
+  dailyLogins           DailyLogin[]
+  streaks               Streak[]
+  userMissions          UserMission[]
+  userAchievements      UserAchievement[]
+  notifications         UserNotification[]
+  leaderboardEntries    LeaderboardEntry[]
+  guildMembers          GuildMember[]
+
+  @@index([telegramId])
+  @@index([username])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model UserSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  soundEnabled      Boolean  @default(true)
+  musicEnabled      Boolean  @default(true)
+  hapticEnabled     Boolean  @default(true)
+  sfxVolume         Int      @default(80)
+  musicVolume       Int      @default(60)
+  theme             String   @default("dark")
+  language          String   @default("en")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================================
+// WALLET & ECONOMY
+// ============================================================================
+
+model Wallet {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  coin              BigInt   @default(0)
+  gem               BigInt   @default(0)
+  ticket            BigInt   @default(0)
+  energy            BigInt   @default(100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      WalletTransaction[]
+
+  @@index([userId])
+}
+
+enum TransactionType {
+  BET
+  WIN
+  REWARD
+  DAILY_LOGIN
+  MISSION_COMPLETE
+  ACHIEVEMENT_COMPLETE
+  PET_PURCHASE
+  PET_SELL
+  SHOP_PURCHASE
+  ADMIN_ADJUST
+  STREAK_BONUS
+  EVENT_REWARD
+  SEASON_REWARD
+}
+
+model WalletTransaction {
+  id                String   @id @default(cuid())
+  walletId          String
+  userId            String
+  type              TransactionType
+  currency          String
+  amount            BigInt
+  balanceBefore     BigInt
+  balanceAfter      BigInt
+  referenceType     String?
+  referenceId       String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  wallet            Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Ledger {
+  id                String   @id @default(cuid())
+  userId            String
+  transactionId     String
+  action            String
+  details           Json
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// GAMES
+// ============================================================================
+
+enum GameType {
+  DICE
+  COIN
+  WHEEL
+  SLOT
+  CARD
+  NUMBER
+  MULTIPLIER
+  MEMORY
+  REACTION
+  GRID
+  TREASURE
+  DOOR
+  PVP
+  TOURNAMENT
+  QUICK
+}
+
+model GameDefinition {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  type              GameType
+  category          String   @default("other")
+  minBet            BigInt   @default(1)
+  maxBet            BigInt   @default(1000000)
+  houseEdge         Float    @default(0.02)
+  payoutMultiplier  Float    @default(2.0)
+  thumbnail         String?
+  isActive          Boolean  @default(true)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  rounds            GameRound[]
+
+  @@index([isActive])
+  @@index([type])
+  @@index([category])
+}
+
+model GameRound {
+  id                String   @id @default(cuid())
+  gameId            String
+  userId            String
+  roundId           String   @unique
+  bet               BigInt
+  outcome           String
+  payout            BigInt
+  profit            BigInt
+  resultData        Json
+  createdAt         DateTime @default(now())
+
+  game              GameDefinition @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// PETS
+// ============================================================================
+
+enum PetRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+  MYTHIC
+  DIVINE
+  SECRET
+  ANCIENT
+}
+
+model PetDefinition {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  rarity            PetRarity
+  price             BigInt
+  sellPrice         BigInt
+  description       String
+  image             String?
+  animation         String?
+  passiveEffect     String?
+  metadata          Json?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userPets          UserPet[]
+
+  @@index([isActive])
+  @@index([rarity])
+}
+
+model UserPet {
+  id                String   @id @default(cuid())
+  userId            String
+  petDefinitionId   String
+  level             Int      @default(1)
+  xp                BigInt   @default(0)
+  mood              Int      @default(100)
+  energy            Int      @default(100)
+  isFavorite        Boolean  @default(false)
+  isEquipped        Boolean  @default(false)
+  customName        String?
+  bonusPower        Float    @default(1.0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  petDefinition     PetDefinition @relation(fields: [petDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isFavorite])
+  @@index([isEquipped])
+}
+
+// ============================================================================
+// INVENTORY & SHOP
+// ============================================================================
+
+enum ItemType {
+  PET
+  COSMETIC
+  FRAME
+  TITLE
+  TICKET
+  ENERGY
+  EFFECT
+  BACKGROUND
+  SKIN
+}
+
+model ShopItem {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  type              ItemType
+  price             BigInt
+  currency          String   @default("COIN")
+  icon              String?
+  rarity            String   @default("COMMON")
+  isActive          Boolean  @default(true)
+  stock             Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  purchases         Purchase[]
+  inventoryItems    InventoryItem[]
+
+  @@index([isActive])
+  @@index([type])
+}
+
+model InventoryItem {
+  id                String   @id @default(cuid())
+  userId            String
+  itemId            String
+  quantity          Int      @default(1)
+  isEquipped        Boolean  @default(false)
+  isFavorite        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item              ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+model Purchase {
+  id                String   @id @default(cuid())
+  userId            String
+  itemId            String
+  quantity          Int      @default(1)
+  price             BigInt
+  currency          String   @default("COIN")
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item              ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// PROGRESSION
+// ============================================================================
+
+model DailyLogin {
+  id                String   @id @default(cuid())
+  userId            String
+  day               Int
+  claimed           Boolean  @default(false)
+  claimedAt         DateTime?
+  reward            BigInt
+  month             Int
+  year              Int
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, year, day])
+  @@index([userId])
+  @@index([claimed])
+}
+
+model Streak {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String   @default("LOGIN")
+  current           Int      @default(0)
+  best              Int      @default(0)
+  lastUpdatedAt     DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model Mission {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  type              String   @default("DAILY")
+  requirement       Int
+  reward            BigInt
+  rewardType        String   @default("COIN")
+  icon              String?
+  isActive          Boolean  @default(true)
+  startAt           DateTime @default(now())
+  endAt             DateTime
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  userMissions      UserMission[]
+
+  @@index([isActive])
+  @@index([type])
+  @@index([startAt])
+}
+
+model UserMission {
+  id                String   @id @default(cuid())
+  userId            String
+  missionId         String
+  progress          Int      @default(0)
+  completed         Boolean  @default(false)
+  completedAt       DateTime?
+  claimed           Boolean  @default(false)
+  claimedAt         DateTime?
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission           Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, missionId])
+  @@index([userId])
+  @@index([completed])
+}
+
+model Quest {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  steps             Int      @default(1)
+  reward            BigInt
+  rewardType        String   @default("COIN")
+  icon              String?
+  isActive          Boolean  @default(true)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  questSteps        QuestStep[]
+
+  @@index([isActive])
+}
+
+model QuestStep {
+  id                String   @id @default(cuid())
+  questId           String
+  stepNumber        Int
+  description       String
+  requirement       Int
+  reward            BigInt
+  createdAt         DateTime @default(now())
+
+  quest             Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@index([questId])
+}
+
+model Achievement {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  icon              String?
+  requirement       Int
+  reward            BigInt
+  category          String   @default("general")
+  isSecret          Boolean  @default(false)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  userAchievements  UserAchievement[]
+
+  @@index([category])
+  @@index([isSecret])
+}
+
+model UserAchievement {
+  id                String   @id @default(cuid())
+  userId            String
+  achievementId     String
+  unlockedAt        DateTime @default(now())
+  claimed           Boolean  @default(false)
+  claimedAt         DateTime?
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement       Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([unlockedAt])
+}
+
+// ============================================================================
+// LEADERBOARDS
+// ============================================================================
+
+model LeaderboardEntry {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String   @default("COINS")
+  rank              Int
+  score             BigInt
+  period            String   @default("alltime")
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, period])
+  @@index([type, period, rank])
+  @@index([userId])
+}
+
+// ============================================================================
+// EVENTS & SEASONS
+// ============================================================================
+
+model GameEvent {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  type              String   @default("MONTHLY")
+  icon              String?
+  startAt           DateTime
+  endAt             DateTime
+  isActive          Boolean  @default(true)
+  reward            BigInt
+  rewardType        String   @default("COIN")
+  rules             Json
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([type])
+  @@index([startAt])
+}
+
+model Season {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  number            Int      @unique
+  startAt           DateTime
+  endAt             DateTime
+  isActive          Boolean  @default(true)
+  reward            BigInt
+  cosmetics         String[]
+  pets              String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([number])
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model UserNotification {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  title             String
+  message           String
+  icon              String?
+  isRead            Boolean  @default(false)
+  readAt            DateTime?
+  actionUrl         String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  expiresAt         DateTime?
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// SOCIAL / GUILD
+// ============================================================================
+
+model Guild {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  icon              String?
+  level             Int      @default(1)
+  xp                BigInt   @default(0)
+  createdBy         String
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  members           GuildMember[]
+
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+enum GuildRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+model GuildMember {
+  id                String   @id @default(cuid())
+  guildId           String
+  userId            String
+  role              GuildRole @default(MEMBER)
+  joinedAt          DateTime @default(now())
+
+  guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+}
+
+// ============================================================================
+// ADMIN & SYSTEM
+// ============================================================================
+
+model AdminUser {
+  id                String   @id @default(cuid())
+  username          String   @unique
+  email             String   @unique
+  passwordHash      String
+  role              String   @default("admin")
+  isActive          Boolean  @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  auditLogs         AuditLog[]
+
+  @@index([isActive])
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  adminId           String
+  action            String
+  targetType        String
+  targetId          String
+  changes           Json
+  reason            String?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now())
+
+  admin             AdminUser @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// COSMETICS & TITLES
+// ============================================================================
+
+model Cosmetic {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  type              String   @default("FRAME")
+  price             BigInt
+  currency          String   @default("GEM")
+  icon              String?
+  rarity            String   @default("COMMON")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([isActive])
+  @@index([type])
+}
+
+model Title {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  icon              String?
+  requirement       String?
+  rarity            String   @default("COMMON")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model Badge {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String
+  icon              String?
+  category          String   @default("general")
+  rarity            String   @default("COMMON")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([isActive])
+  @@index([category])
+}

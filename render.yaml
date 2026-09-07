@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: telegram-casino-api
+    env: node
+    buildCommand: npm run build && npm run db:migrate
+    startCommand: npm start
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: telegram-casino-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: telegram-casino-redis
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+
+databases:
+  - name: telegram-casino-db
+    engine: postgres
+    plan: starter
+    ipAllowList: []
+
+redis:
+  - name: telegram-casino-redis
+    plan: starter
+    ipAllowList: []
